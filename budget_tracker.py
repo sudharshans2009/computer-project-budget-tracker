@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 import os
@@ -9,10 +9,11 @@ try:
    import mysql.connector
    from mysql.connector import Error
 except ImportError:
-   print("Installing mysql-connector-python...")
-   os.system(f"{sys.executable} -m pip install mysql-connector-python")
-   import mysql.connector
-   from mysql.connector import Error
+   print("ERROR: mysql-connector-python is not installed.")
+   print("Run one of the following to fix this:")
+   print("  sudo apt install python3-mysql.connector")
+   print("  pip install mysql-connector-python --break-system-packages")
+   sys.exit(1)
 
 # ANSI Colors
 COLORS = {
