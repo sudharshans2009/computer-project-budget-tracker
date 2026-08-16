@@ -10,9 +10,6 @@ try:
    from mysql.connector import Error
 except ImportError:
    print("ERROR: mysql-connector-python is not installed.")
-   print("Run one of the following to fix this:")
-   print("  sudo apt install python3-mysql.connector")
-   print("  pip install mysql-connector-python --break-system-packages")
    sys.exit(1)
 
 # ANSI Colors
@@ -50,46 +47,6 @@ def fmt_amount(amount, color=True):
 # DB Connection
 def get_connection(config):
    return mysql.connector.connect(**config)
-
-def setup_database(config):
-   """Create DB and tables if they don't exist."""
-   base = {k: v for k, v in config.items() if k != "database"}
-   conn = mysql.connector.connect(**base)
-   cur = conn.cursor()
-   cur.execute(f"CREATE DATABASE IF NOT EXISTS `{config['database']}` CHARACTER SET utf8mb4")
-   conn.commit()
-   cur.close()
-   conn.close()
-
-   conn = get_connection(config)
-   cur = conn.cursor()
-
-   cur.execute("""
-       CREATE TABLE IF NOT EXISTS tags (
-           id          INT AUTO_INCREMENT PRIMARY KEY,
-           name        VARCHAR(60) UNIQUE NOT NULL,
-           tag_type    ENUM('expense','income','both') DEFAULT 'both',
-           budget      DECIMAL(15,2) DEFAULT NULL,
-           created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
-       )
-   """)
-
-   cur.execute("""
-       CREATE TABLE IF NOT EXISTS transactions (
-           id           INT AUTO_INCREMENT PRIMARY KEY,
-           type         ENUM('expense','income') NOT NULL,
-           amount       DECIMAL(15,2) NOT NULL,
-           description  VARCHAR(255),
-           tag_id       INT,
-           txn_date     DATE NOT NULL,
-           created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
-           FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE SET NULL
-       )
-   """)
-
-   conn.commit()
-   cur.close()
-   conn.close()
 
 # Tag Management
 def add_tag(conn):
@@ -422,7 +379,6 @@ def main():
 
    print(f"\n{COLORS['DIM']}  Connecting to MySQL...{COLORS['RESET']}")
    try:
-       setup_database(config)
        conn = get_connection(config)
        success(f"Connected to '{config['database']}' on {config['host']}:{config['port']}")
    except Error as e:
