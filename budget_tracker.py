@@ -53,9 +53,6 @@ def colorize(text: str, color: str) -> str:
     return f"{color}{text}{C.RESET}"
 
 def padded(text: str, width: int, align: str = "<") -> str:
-    """Pad plain (uncolored) text to `width` before any ANSI wrapping — color
-    codes must never be inside the width calculation or columns misalign.
-    """
     return f"{text:{align}{width}}"
 
 def fmt_money(amount, color: bool = True, signed: bool = False) -> str:
@@ -66,11 +63,6 @@ def fmt_money(amount, color: bool = True, signed: bool = False) -> str:
 
 def fmt_money_cell(amount, width: int, align: str = ">", signed: bool = False,
                     color: Optional[str] = None) -> str:
-    """A width-padded, colorized money cell for table rows — combines the
-    padded()+colorize()+fmt_money() sequence that table printers repeat often.
-    `color` overrides the default sign-based color (e.g. force expenses red
-    even though the stored amount itself is positive).
-    """
     dec = amount if isinstance(amount, Decimal) else Decimal(str(amount))
     cell = padded(fmt_money(dec, color=False, signed=signed), width, align)
     return colorize(cell, color if color is not None else (C.GREEN if dec >= 0 else C.RED))
@@ -94,10 +86,6 @@ class DBConfig:
         }
 
 def get_db_config() -> DBConfig:
-    """Build DB config from environment variables first, prompting for
-    anything missing. Password is always collected via getpass so it is
-    never echoed to the terminal.
-    """
     env = os.environ
     if env.get("BUDGET_DB_HOST") or env.get("BUDGET_DB_USER"):
         info("Using DB settings from environment variables where available.")
@@ -147,10 +135,6 @@ SCHEMA = [
 
 @contextmanager
 def cursor_scope(conn: MySQLConnection, dictionary: bool = False) -> Iterator[MySQLCursor]:
-    """Always closes the cursor and rolls back the connection if the block
-    raises, so a failed operation never leaks a cursor or leaves a stuck
-    transaction. All other DB helpers below are built on top of this.
-    """
     cur = conn.cursor(dictionary=dictionary)
     try:
         yield cur
@@ -171,8 +155,6 @@ def fetch_all(conn: MySQLConnection, query: str, params: tuple = ()) -> list[dic
         return cur.fetchall()
 
 def execute_commit(conn: MySQLConnection, query: str, params: tuple = ()) -> int:
-    """Run a single write statement, commit, and return lastrowid (0 for
-    statements that don't insert, e.g. UPDATE/DELETE)."""
     with cursor_scope(conn) as cur:
         cur.execute(query, params)
         last_id = cur.lastrowid
@@ -189,8 +171,6 @@ def connect(config: DBConfig) -> MySQLConnection:
     return mysql.connector.connect(**config.as_kwargs())
 
 def prompt_id(msg: str) -> Optional[int]:
-    """Prompt for a numeric row ID; prints an error and returns None if the
-    input isn't a valid non-negative integer."""
     raw = prompt(msg)
     if not raw.isdigit():
         error("ID must be a number.")
@@ -198,9 +178,6 @@ def prompt_id(msg: str) -> Optional[int]:
     return int(raw)
 
 def prompt_budget(msg: str) -> tuple[bool, Optional[Decimal]]:
-    """Prompt for an optional budget amount. Returns (ok, value): ok is False
-    (with an error already printed) if the input was non-empty but invalid or
-    negative; value is None for a blank/"no budget" answer."""
     raw = prompt(msg)
     if not raw:
         return True, None
