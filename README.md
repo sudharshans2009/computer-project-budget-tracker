@@ -123,19 +123,19 @@ MAIN MENU
 
 ### Menu actions
 
-| Key | Action | Description |
-|-----|--------|-------------|
-| `1` | Add Income | Add an income entry and optionally attach a tag |
-| `2` | Add Expense | Add an expense and check budget warnings for the selected tag |
-| `3` | Remove Transaction | Delete a transaction by ID after confirmation |
-| `4` | List Transactions | Show recent transactions ordered by date |
-| `5` | Add Tag | Create a tag with a name, type, and optional budget |
-| `6` | Remove Tag | Delete a tag; existing transactions are left as untagged history |
-| `7` | List Tags | Display all tags with type and budget |
-| `8` | Set Tag Budget | Assign or clear a budget for an existing tag |
-| `9` | Account Summary | Show total income, total expenses, and net balance |
-| `10` | Summary by Tag | Show per-tag totals, net values, and budget usage |
-| `0` | Exit | Close the database connection and end the script |
+| Key  | Action             | Description                                                      |
+| ---- | ------------------ | ---------------------------------------------------------------- |
+| `1`  | Add Income         | Add an income entry and optionally attach a tag                  |
+| `2`  | Add Expense        | Add an expense and check budget warnings for the selected tag    |
+| `3`  | Remove Transaction | Delete a transaction by ID after confirmation                    |
+| `4`  | List Transactions  | Show recent transactions ordered by date                         |
+| `5`  | Add Tag            | Create a tag with a name, type, and optional budget              |
+| `6`  | Remove Tag         | Delete a tag; existing transactions are left as untagged history |
+| `7`  | List Tags          | Display all tags with type and budget                            |
+| `8`  | Set Tag Budget     | Assign or clear a budget for an existing tag                     |
+| `9`  | Account Summary    | Show total income, total expenses, and net balance               |
+| `10` | Summary by Tag     | Show per-tag totals, net values, and budget usage                |
+| `0`  | Exit               | Close the database connection and end the script                 |
 
 ---
 
