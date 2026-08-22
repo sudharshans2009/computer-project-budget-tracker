@@ -1,188 +1,220 @@
-# 💰 Budget Tracker
+# Budget Tracker
 
-A terminal-based personal finance manager backed by MySQL. Track income and expenses, organise transactions with tags, set spending budgets, and view summaries — all from your command line.
+A terminal-based personal finance tracker for MySQL. It lets you record income and expenses, assign tags, set category budgets, and review account totals and per-tag summaries directly from the command line.
 
-![Python 3.7+](https://img.shields.io/badge/Python-3.7%2B-blue) ![MySQL 5.7+](https://img.shields.io/badge/MySQL-5.7%2B-orange) ![License: MIT](https://img.shields.io/badge/License-MIT-green)
+![Python 3.7+](https://img.shields.io/badge/Python-3.7%2B-blue) ![MySQL](https://img.shields.io/badge/MySQL-Required-orange) ![MIT](https://img.shields.io/badge/License-MIT-green)
 
 ---
 
 ## Features
 
-- **Add & remove** income and expense transactions
-- **Tag system** — categorise transactions with custom, typed tags
-- **Budget limits** — set spending ceilings per tag with live usage bars
-- **Budget alerts** — warnings at 80% spend and when a budget is exceeded
-- **Account summary** — total income, total expenses, and net balance
-- **Per-tag summary** — breakdown of income, expense, net, and budget usage for every category
+- Add, remove, and list income and expense entries
+- Create tags with `expense`, `income`, or `both` types
+- Set and update a budget for each tag
+- Get warnings when spending reaches 80% or exceeds the tag budget
+- Review total income, total expenses, and net balance
+- View a summary by tag with usage bars and totals
+- Automatically create the required MySQL tables on startup
+- Read connection values from environment variables when present
 
 ---
 
 ## Requirements
 
 - Python 3.7+
-- A running MySQL server (local or remote)
-- `mysql-connector-python` package
+- MySQL server running locally or remotely
+- `mysql-connector-python`
+
+Install the dependency:
 
 ```bash
 pip install mysql-connector-python
 ```
 
-> The script will attempt to auto-install `mysql-connector-python` on first run if it is missing.
-
 ---
 
 ## Getting Started
 
-### 1. Run the script
+### 1. Run the app
 
 ```bash
 python budget_tracker.py
 ```
 
-### 2. Enter your MySQL credentials
+### 2. Provide MySQL credentials
 
-On first launch a connection wizard prompts for host, port, user, password, and database name. Press `Enter` to accept any default.
+The app prompts for host, port, user, password, and database settings. The password is collected securely using `getpass`, so it is not echoed to the terminal.
 
-```
+```text
 MySQL Connection Setup
-(Press Enter to use defaults)
+(Press Enter to accept defaults / env values)
 
-  ▶  Host     [localhost]:
-  ▶  Port     [3306]:
-  ▶  User     [root]:
-  ▶  Password: ••••••••
-  ▶  Database [budget_tracker]:
+  Host     [localhost]:
+  Port     [3306]:
+  User     [root]:
+  Password:
+  Database [budget_tracker]:
 ```
 
-### 3. Automatic setup
+### 3. Optional environment configuration
 
-The database and both tables are created automatically if they do not exist. No manual SQL required.
+You can also set values through environment variables instead of entering them manually:
 
----
-
-## Main Menu Reference
-
-| Key | Command | Description |
-|-----|---------|-------------|
-| `1` | Add Income | Record an income transaction with amount, description, date, and optional tag |
-| `2` | Add Expense | Record an expense transaction — triggers budget warnings if relevant |
-| `3` | Remove Transaction | Delete a transaction by ID after a confirmation prompt |
-| `4` | List Transactions | View the 20 most recent transactions, colour-coded by type |
-| `5` | Add Tag | Create a tag with type (`expense` / `income` / `both`) and optional budget |
-| `6` | Remove Tag | Delete a tag; linked transactions become untagged (history preserved) |
-| `7` | List Tags | Show all tags with their type and assigned budget |
-| `8` | Set Tag Budget | Assign or update a spending limit for any existing tag |
-| `9` | Account Summary | Total income, expenses, and net balance across all time |
-| `10` | Summary by Tag | Per-tag breakdown with income, expense, net, budget, and a visual usage bar |
-| `0` | Exit | Close the database connection and quit cleanly |
-
----
-
-## Tag Types
-
-When creating a tag, choose which transaction types it applies to:
-
-| Type | Appears when adding... |
-|------|------------------------|
-| `expense` | Expenses only |
-| `income` | Income only |
-| `both` | Either type *(default)* |
-
-**Examples:**  
-`Salary` → `income` · `Rent` → `expense` · `Freelance` → `both`
-
----
-
-## Budget Alerts
-
-Budget thresholds are checked automatically every time you add an expense to a tagged category.
-
+```bash
+export BUDGET_DB_HOST=localhost
+export BUDGET_DB_PORT=3306
+export BUDGET_DB_USER=root
+export BUDGET_DB_PASSWORD=your_password
+export BUDGET_DB_NAME=budget_tracker
+python budget_tracker.py
 ```
-⚠  80%+ of budget used for 'Dining Out'!
-   Spent ₹3,200 / Budget ₹4,000
 
-⚠  Budget exceeded for 'Dining Out'!
-   Spent ₹4,350 / Budget ₹4,000
-```
+Any missing environment values will still be prompted for interactively.
 
 ---
 
 ## Database Schema
 
-### `tags`
+The app creates the required tables automatically if they do not exist:
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | INT | Primary key, auto-increment |
-| `name` | VARCHAR(60) | Unique tag name |
-| `tag_type` | ENUM | `expense`, `income`, or `both` |
-| `budget` | DECIMAL(15,2) | Optional spending limit |
-| `created_at` | DATETIME | Auto-set on insert |
+```sql
+CREATE TABLE IF NOT EXISTS tags (
+    id         INT AUTO_INCREMENT PRIMARY KEY,
+    name       VARCHAR(60) NOT NULL UNIQUE,
+    tag_type   ENUM('expense', 'income', 'both') NOT NULL DEFAULT 'both',
+    budget     DECIMAL(15, 2) NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
-### `transactions`
+CREATE TABLE IF NOT EXISTS transactions (
+    id          INT AUTO_INCREMENT PRIMARY KEY,
+    type        ENUM('expense', 'income') NOT NULL,
+    amount      DECIMAL(15, 2) NOT NULL,
+    description VARCHAR(255) NULL,
+    tag_id      INT NULL,
+    txn_date    DATE NOT NULL,
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE SET NULL
+);
+```
 
-| Column | Type | Notes |
-|--------|------|-------|
-| `id` | INT | Primary key, auto-increment |
-| `type` | ENUM | `expense` or `income` |
-| `amount` | DECIMAL(15,2) | Positive value |
-| `description` | VARCHAR(255) | Optional |
-| `tag_id` | INT | FK → `tags.id`, `NULL` on tag deletion |
-| `txn_date` | DATE | Transaction date |
-| `created_at` | DATETIME | Auto-set on insert |
+---
 
-> Deleting a tag sets `tag_id` to `NULL` on its transactions — history is never lost.
+## Main Menu
+
+```text
+MAIN MENU
+---------------------------------
+1  Add Income
+2  Add Expense
+3  Remove Transaction
+4  List Transactions
+---------------------------------
+5  Add Tag
+6  Remove Tag
+7  List Tags
+8  Set Tag Budget
+---------------------------------
+9  Account Summary
+10 Summary by Tag
+---------------------------------
+0  Exit
+```
+
+### Menu actions
+
+| Key | Action | Description |
+|-----|--------|-------------|
+| `1` | Add Income | Add an income entry and optionally attach a tag |
+| `2` | Add Expense | Add an expense and check budget warnings for the selected tag |
+| `3` | Remove Transaction | Delete a transaction by ID after confirmation |
+| `4` | List Transactions | Show recent transactions ordered by date |
+| `5` | Add Tag | Create a tag with a name, type, and optional budget |
+| `6` | Remove Tag | Delete a tag; existing transactions are left as untagged history |
+| `7` | List Tags | Display all tags with type and budget |
+| `8` | Set Tag Budget | Assign or clear a budget for an existing tag |
+| `9` | Account Summary | Show total income, total expenses, and net balance |
+| `10` | Summary by Tag | Show per-tag totals, net values, and budget usage |
+| `0` | Exit | Close the database connection and end the script |
+
+---
+
+## Tag Types
+
+Each tag can be created with one of these types:
+
+- `expense` — available only when adding expenses
+- `income` — available only when adding income
+- `both` — available for both types
+
+Examples:
+
+- `Salary` → `income`
+- `Rent` → `expense`
+- `Freelance` → `both`
+
+---
+
+## Budget Warnings
+
+The app checks tag budgets each time an expense is added. If spending reaches 80% of the budget, it shows a warning. If the budget is exceeded, it shows a stronger warning.
+
+```text
+⚠  80%+ of budget used for 'Dining Out'!
+   Spent $3,200.00 / Budget $4,000.00
+
+⚠  Budget exceeded for 'Dining Out'!
+   Spent $4,350.00 / Budget $4,000.00
+```
+
+The tag summary view also includes a progress bar for budget usage.
 
 ---
 
 ## Typical Workflow
 
 ```bash
-# First session
 python budget_tracker.py
+```
 
-# 1. Create your tags
-5 → Add Tag:  Salary     | type: income  | budget: —
-5 → Add Tag:  Rent       | type: expense | budget: 15000
-5 → Add Tag:  Groceries  | type: expense | budget: 6000
-5 → Add Tag:  Dining Out | type: expense | budget: 4000
+Then:
 
-# 2. Record transactions
-1 → Add Income:  ₹75,000  | Salary    | 2026-04-01
-2 → Add Expense: ₹15,000  | Rent      | 2026-04-01
-2 → Add Expense: ₹2,340   | Groceries
+1. Choose `5` to add tags
+2. Choose `1` to add income
+3. Choose `2` to add expenses
+4. Choose `9` to view the account summary
+5. Choose `10` to inspect per-tag spending
 
-# 3. Check your position
-9  → Account Summary
-10 → Summary by Tag
+Example:
+
+```text
+5 -> Add Tag: Salary     | type: income | budget: blank
+5 -> Add Tag: Rent       | type: expense | budget: 1500
+5 -> Add Tag: Groceries  | type: expense | budget: 600
+1 -> Add Income:  $3500
+2 -> Add Expense: $1200
+9 -> Account Summary
+10 -> Summary by Tag
 ```
 
 ---
 
 ## Troubleshooting
 
-### Access denied
-Ensure your MySQL user has `CREATE`, `INSERT`, `SELECT`, `UPDATE`, and `DELETE` privileges on the target database.
+### MySQL access denied
+
+Make sure the MySQL user has permission to create, read, update, and delete records in the target database.
 
 ```sql
 GRANT ALL PRIVILEGES ON budget_tracker.* TO 'your_user'@'localhost';
 FLUSH PRIVILEGES;
 ```
 
-### Can't connect to server
-Verify MySQL is running:
+### Connection failed
 
-```bash
-# Linux
-sudo systemctl status mysql
+Check that MySQL is running and that the host, port, user, and database values are correct.
 
-# macOS (Homebrew)
-brew services list | grep mysql
-```
-
-Check that the host and port entered match your MySQL configuration.
-
-### Module not found
+### `mysql-connector-python` not found
 
 ```bash
 pip install mysql-connector-python
@@ -192,13 +224,13 @@ pip install mysql-connector-python
 
 ## Project Structure
 
-```
-budget_tracker.py   # Single-file application — run this
-README.md           # This file
+```text
+budget_tracker.py   # Main CLI application
+README.md           # Documentation
 ```
 
 ---
 
 ## License
 
-MIT
+This project is licensed under the MIT License.
