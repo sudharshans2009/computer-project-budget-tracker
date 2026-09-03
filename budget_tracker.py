@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
 
+"""
+Terminal-based Budget Tracker
+Sudharshan S (@sudharshans2009)
+LICENSE: MIT
+"""
+
+
 from __future__ import annotations
 
 import os
