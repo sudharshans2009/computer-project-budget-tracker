@@ -6,106 +6,76 @@ Sudharshan S (@sudharshans2009)
 LICENSE: MIT
 """
 
-
-from __future__ import annotations
-
 import os
 import sys
 import getpass
-from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import date, datetime
-from decimal import Decimal, InvalidOperation
-from typing import Iterator, Optional
 
 try:
     import mysql.connector
-    from mysql.connector import Error, MySQLConnection
-    from mysql.connector.cursor import MySQLCursor
+    from mysql.connector import Error
 except ImportError:
     print("ERROR: mysql-connector-python is not installed. Run: pip install mysql-connector-python")
     sys.exit(1)
 
-class C:
-    RESET = "\033[0m"
-    BOLD = "\033[1m"
-    RED = "\033[91m"
-    GREEN = "\033[92m"
-    YELLOW = "\033[93m"
-    CYAN = "\033[96m"
-    DIM = "\033[2m"
+RESET = "\033[0m"
+BOLD = "\033[1m"
+RED = "\033[91m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+CYAN = "\033[96m"
+DIM = "\033[2m"
 
-def header(text: str) -> None:
+def header(text):
     width = 56
-    print(f"\n{C.CYAN}{C.BOLD}{'─' * width}")
+    print(f"\n{CYAN}{BOLD}{'─' * width}")
     print(f"  {text}")
-    print(f"{'─' * width}{C.RESET}")
+    print(f"{'─' * width}{RESET}")
 
-def success(msg: str) -> None:
-    print(f"{C.GREEN}  SUCCESS: {msg}{C.RESET}")
+def success(msg):
+    print(f"{GREEN}  SUCCESS: {msg}{RESET}")
 
-def error(msg: str) -> None:
-    print(f"{C.RED}  ERROR: {msg}{C.RESET}")
+def error(msg):
+    print(f"{RED}  ERROR: {msg}{RESET}")
 
-def info(msg: str) -> None:
-    print(f"{C.YELLOW}  INFO: {msg}{C.RESET}")
+def info(msg):
+    print(f"{YELLOW}  INFO: {msg}{RESET}")
 
-def prompt(msg: str) -> str:
-    return input(f"{C.CYAN}  >  {msg}: {C.RESET}").strip()
+def prompt(msg):
+    return input(f"{CYAN}  >  {msg}: {RESET}").strip()
 
-def confirm(msg: str) -> bool:
+def confirm(msg):
     return prompt(f"{msg} [y/N]").lower() == "y"
 
-def colorize(text: str, color: str) -> str:
-    return f"{color}{text}{C.RESET}"
+def colorize(text, color):
+    return f"{color}{text}{RESET}"
 
-def padded(text: str, width: int, align: str = "<") -> str:
+def padded(text, width, align="<"):
     return f"{text:{align}{width}}"
 
-def fmt_money(amount, color: bool = True, signed: bool = False) -> str:
-    amount = amount if isinstance(amount, Decimal) else Decimal(str(amount))
+def fmt_money(amount, color=True, signed=False):
     sign = ("+" if amount >= 0 else "-") if signed else ""
     plain = f"{sign}${abs(amount):,.2f}"
-    return colorize(plain, C.GREEN if amount >= 0 else C.RED) if color else plain
+    return colorize(plain, GREEN if amount >= 0 else RED) if color else plain
 
-def fmt_money_cell(amount, width: int, align: str = ">", signed: bool = False,
-                    color: Optional[str] = None) -> str:
-    dec = amount if isinstance(amount, Decimal) else Decimal(str(amount))
-    cell = padded(fmt_money(dec, color=False, signed=signed), width, align)
-    return colorize(cell, color if color is not None else (C.GREEN if dec >= 0 else C.RED))
+def fmt_money_cell(amount, width, align=">", signed=False, color=None):
+    cell = padded(fmt_money(amount, color=False, signed=signed), width, align)
+    return colorize(cell, color if color is not None else (GREEN if amount >= 0 else RED))
 
-@dataclass
-class DBConfig:
-    host: str = "localhost"
-    port: int = 3306
-    user: str = "root"
-    password: str = ""
-    database: str = "budget_tracker"
-
-    def as_kwargs(self) -> dict:
-        return {
-            "host": self.host,
-            "port": self.port,
-            "user": self.user,
-            "password": self.password,
-            "database": self.database,
-            "autocommit": False,
-        }
-
-def get_db_config() -> DBConfig:
+def get_db_config():
     env = os.environ
     if env.get("BUDGET_DB_HOST") or env.get("BUDGET_DB_USER"):
         info("Using DB settings from environment variables where available.")
 
-    print(f"\n{C.CYAN}{C.BOLD}  MySQL Connection Setup{C.RESET}")
-    print(f"  {C.DIM}(Press Enter to accept defaults / env values){C.RESET}\n")
+    print(f"\n{CYAN}{BOLD}  MySQL Connection Setup{RESET}")
+    print(f"  {DIM}(Press Enter to accept defaults / env values){RESET}\n")
 
     host = env.get("BUDGET_DB_HOST") or prompt("Host     [localhost]") or "localhost"
     port_str = env.get("BUDGET_DB_PORT") or prompt("Port     [3306]") or "3306"
     user = env.get("BUDGET_DB_USER") or prompt("User     [root]") or "root"
     password = env.get("BUDGET_DB_PASSWORD")
     if password is None:
-        password = getpass.getpass(f"{C.CYAN}  >  Password: {C.RESET}")
+        password = getpass.getpass(f"{CYAN}  >  Password: {RESET}")
     database = env.get("BUDGET_DB_NAME") or prompt("Database [budget_tracker]") or "budget_tracker"
 
     try:
@@ -114,7 +84,13 @@ def get_db_config() -> DBConfig:
         error(f"Invalid port '{port_str}', falling back to 3306.")
         port = 3306
 
-    return DBConfig(host=host, port=port, user=user, password=password, database=database)
+    return {
+        "host": host,
+        "port": port,
+        "user": user,
+        "password": password,
+        "database": database,
+    }
 
 SCHEMA = [
     """
@@ -122,7 +98,7 @@ SCHEMA = [
         id         INT AUTO_INCREMENT PRIMARY KEY,
         name       VARCHAR(60) NOT NULL UNIQUE,
         tag_type   ENUM('expense', 'income', 'both') NOT NULL DEFAULT 'both',
-        budget     DECIMAL(15, 2) NULL,
+        budget     FLOAT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
     """,
@@ -130,7 +106,7 @@ SCHEMA = [
     CREATE TABLE IF NOT EXISTS transactions (
         id          INT AUTO_INCREMENT PRIMARY KEY,
         type        ENUM('expense', 'income') NOT NULL,
-        amount      DECIMAL(15, 2) NOT NULL,
+        amount      FLOAT NOT NULL,
         description VARCHAR(255) NULL,
         tag_id      INT NULL,
         txn_date    DATE NOT NULL,
@@ -140,57 +116,68 @@ SCHEMA = [
     """,
 ]
 
-@contextmanager
-def cursor_scope(conn: MySQLConnection, dictionary: bool = False) -> Iterator[MySQLCursor]:
-    cur = conn.cursor(dictionary=dictionary)
+def fetch_one(conn, query, params=()):
+    cur = conn.cursor(dictionary=True)
     try:
-        yield cur
-    except Exception:
-        conn.rollback()
-        raise
+        cur.execute(query, params)
+        return cur.fetchone()
     finally:
         cur.close()
 
-def fetch_one(conn: MySQLConnection, query: str, params: tuple = ()) -> Optional[dict]:
-    with cursor_scope(conn, dictionary=True) as cur:
-        cur.execute(query, params)
-        return cur.fetchone()
-
-def fetch_all(conn: MySQLConnection, query: str, params: tuple = ()) -> list[dict]:
-    with cursor_scope(conn, dictionary=True) as cur:
+def fetch_all(conn, query, params=()):
+    cur = conn.cursor(dictionary=True)
+    try:
         cur.execute(query, params)
         return cur.fetchall()
+    finally:
+        cur.close()
 
-def execute_commit(conn: MySQLConnection, query: str, params: tuple = ()) -> int:
-    with cursor_scope(conn) as cur:
+def execute_commit(conn, query, params=()):
+    cur = conn.cursor()
+    try:
         cur.execute(query, params)
         last_id = cur.lastrowid
+    except Exception:
+        conn.rollback()
+        cur.close()
+        raise
     conn.commit()
+    cur.close()
     return last_id
 
-def ensure_schema(conn: MySQLConnection) -> None:
-    with cursor_scope(conn) as cur:
+def ensure_schema(conn):
+    cur = conn.cursor()
+    try:
         for statement in SCHEMA:
             cur.execute(statement)
+    finally:
+        cur.close()
     conn.commit()
 
-def connect(config: DBConfig) -> MySQLConnection:
-    return mysql.connector.connect(**config.as_kwargs())
+def connect(config):
+    return mysql.connector.connect(
+        host=config["host"],
+        port=config["port"],
+        user=config["user"],
+        password=config["password"],
+        database=config["database"],
+        autocommit=False,
+    )
 
-def prompt_id(msg: str) -> Optional[int]:
+def prompt_id(msg):
     raw = prompt(msg)
     if not raw.isdigit():
         error("ID must be a number.")
         return None
     return int(raw)
 
-def prompt_budget(msg: str) -> tuple[bool, Optional[Decimal]]:
+def prompt_budget(msg):
     raw = prompt(msg)
     if not raw:
         return True, None
     try:
-        value = Decimal(raw)
-    except InvalidOperation:
+        value = float(raw)
+    except ValueError:
         error(f"'{raw}' is not a valid amount.")
         return False, None
     if value < 0:
@@ -198,7 +185,7 @@ def prompt_budget(msg: str) -> tuple[bool, Optional[Decimal]]:
         return False, None
     return True, value
 
-def add_tag(conn: MySQLConnection) -> None:
+def add_tag(conn):
     header("Add Tag")
     name = prompt("Tag name")
     if not name:
@@ -221,7 +208,7 @@ def add_tag(conn: MySQLConnection) -> None:
     except mysql.connector.IntegrityError:
         error(f"Tag '{name}' already exists.")
 
-def remove_tag(conn: MySQLConnection) -> None:
+def remove_tag(conn):
     header("Remove Tag")
     list_tags(conn, show_header=False)
     tag_id = prompt_id("Enter Tag ID to remove (transactions keep history, untagged)")
@@ -239,7 +226,7 @@ def remove_tag(conn: MySQLConnection) -> None:
     execute_commit(conn, "DELETE FROM tags WHERE id = %s", (tag_id,))
     success(f"Tag '{row['name']}' removed.")
 
-def set_tag_budget(conn: MySQLConnection) -> None:
+def set_tag_budget(conn):
     header("Assign / Update Tag Budget")
     list_tags(conn, show_header=False)
     tag_id = prompt_id("Enter Tag ID")
@@ -259,7 +246,7 @@ def set_tag_budget(conn: MySQLConnection) -> None:
     execute_commit(conn, "UPDATE tags SET budget = %s WHERE id = %s", (budget, tag_id))
     success("Budget updated.")
 
-def list_tags(conn: MySQLConnection, show_header: bool = True) -> None:
+def list_tags(conn, show_header=True):
     if show_header:
         header("Tags")
     rows = fetch_all(conn, "SELECT * FROM tags ORDER BY name")
@@ -267,21 +254,21 @@ def list_tags(conn: MySQLConnection, show_header: bool = True) -> None:
         info("No tags yet.")
         return
 
-    print(f"\n  {C.BOLD}{padded('ID', 5)} {padded('Name', 25)} {padded('Type', 10)} {padded('Budget', 12, '>')}{C.RESET}")
+    print(f"\n  {BOLD}{padded('ID', 5)} {padded('Name', 25)} {padded('Type', 10)} {padded('Budget', 12, '>')}{RESET}")
     print(f"  {'─' * 56}")
     for r in rows:
-        bud = fmt_money_cell(r["budget"], 12, color=C.RESET) if r["budget"] \
-            else colorize(padded("—", 12, ">"), C.DIM)
+        bud = fmt_money_cell(r["budget"], 12, color=RESET) if r["budget"] \
+            else colorize(padded("—", 12, ">"), DIM)
         print(f"  {padded(str(r['id']), 5)} {padded(r['name'], 25)} {padded(r['tag_type'], 10)} {bud}")
 
-def pick_tag(conn: MySQLConnection, txn_type: str) -> Optional[int]:
+def pick_tag(conn, txn_type):
     tags = fetch_all(conn, "SELECT * FROM tags WHERE tag_type = %s OR tag_type = 'both' ORDER BY name",
                       (txn_type,))
     if not tags:
         info("No tags available. Add tags first (or proceed untagged).")
         return None
 
-    print(f"\n  {C.BOLD}{padded('ID', 5)} Tag{C.RESET}")
+    print(f"\n  {BOLD}{padded('ID', 5)} Tag{RESET}")
     for t in tags:
         print(f"  {padded(str(t['id']), 5)} {t['name']}")
 
@@ -294,15 +281,15 @@ def pick_tag(conn: MySQLConnection, txn_type: str) -> Optional[int]:
     error("Invalid tag ID. Transaction saved untagged.")
     return None
 
-def add_transaction(conn: MySQLConnection, txn_type: str) -> None:
+def add_transaction(conn, txn_type):
     header(f"Add {txn_type.capitalize()}")
 
     amount_str = prompt("Amount")
     try:
-        amount = Decimal(amount_str)
+        amount = float(amount_str)
         if amount <= 0:
             raise ValueError
-    except (InvalidOperation, ValueError):
+    except ValueError:
         error("Enter a valid positive number.")
         return
 
@@ -325,9 +312,9 @@ def add_transaction(conn: MySQLConnection, txn_type: str) -> None:
     success(f"{txn_type.capitalize()} of {fmt_money(amount)} recorded (ID #{txn_id}).")
 
     if tag_id:
-        _check_budget_warning(conn, tag_id)
+        check_budget_warning(conn, tag_id)
 
-def _check_budget_warning(conn: MySQLConnection, tag_id: int) -> None:
+def check_budget_warning(conn, tag_id):
     row = fetch_one(conn, """
         SELECT t.name, t.budget,
                COALESCE(SUM(CASE WHEN tx.type = 'expense' THEN tx.amount ELSE 0 END), 0) AS spent
@@ -341,16 +328,16 @@ def _check_budget_warning(conn: MySQLConnection, tag_id: int) -> None:
 
     spent, budget, name = row["spent"], row["budget"], row["name"]
     if spent >= budget:
-        color, label = C.RED, "Budget exceeded"
-    elif spent >= budget * Decimal("0.8"):
-        color, label = C.YELLOW, "80%+ of budget used"
+        color, label = RED, "Budget exceeded"
+    elif spent >= budget * 0.8:
+        color, label = YELLOW, "80%+ of budget used"
     else:
         return
 
-    print(f"\n  {color}{C.BOLD}⚠  {label} for '{name}'! "
-          f"Spent {fmt_money(spent)} / Budget {fmt_money(budget)}{C.RESET}")
+    print(f"\n  {color}{BOLD}⚠  {label} for '{name}'! "
+          f"Spent {fmt_money(spent)} / Budget {fmt_money(budget)}{RESET}")
 
-def remove_transaction(conn: MySQLConnection) -> None:
+def remove_transaction(conn):
     header("Remove Transaction")
     list_transactions(conn, limit=15, show_header=False)
     txn_id = prompt_id("Transaction ID to delete")
@@ -369,7 +356,7 @@ def remove_transaction(conn: MySQLConnection) -> None:
     execute_commit(conn, "DELETE FROM transactions WHERE id = %s", (txn_id,))
     success("Transaction removed.")
 
-def list_transactions(conn: MySQLConnection, limit: int = 20, show_header: bool = True) -> None:
+def list_transactions(conn, limit=20, show_header=True):
     if show_header:
         header("Recent Transactions")
 
@@ -386,17 +373,17 @@ def list_transactions(conn: MySQLConnection, limit: int = 20, show_header: bool 
         info("No transactions yet.")
         return
 
-    print(f"\n  {C.BOLD}{padded('ID', 6)} {padded('Date', 12)} {padded('Type', 9)} "
-          f"{padded('Amount', 12, '>')}  {padded('Tag', 20)} Description{C.RESET}")
+    print(f"\n  {BOLD}{padded('ID', 6)} {padded('Date', 12)} {padded('Type', 9)} "
+          f"{padded('Amount', 12, '>')}  {padded('Tag', 20)} Description{RESET}")
     print(f"  {'─' * 80}")
     for r in rows:
         amt = fmt_money_cell(r["amount"], 12, signed=True,
-                              color=C.GREEN if r["type"] == "income" else C.RED)
+                              color=GREEN if r["type"] == "income" else RED)
         desc = (r["description"] or "")[:30]
         print(f"  {padded(str(r['id']), 6)} {padded(str(r['txn_date']), 12)} "
               f"{padded(r['type'], 9)} {amt}  {padded(r['tag'], 20)} {desc}")
 
-def summary_account(conn: MySQLConnection) -> None:
+def summary_account(conn):
     header("Account Summary")
     row = fetch_one(conn, """
         SELECT
@@ -406,17 +393,17 @@ def summary_account(conn: MySQLConnection) -> None:
         FROM transactions
         """)
 
-    inc = row["total_income"] or Decimal(0)
-    exp = row["total_expense"] or Decimal(0)
+    inc = row["total_income"] or 0
+    exp = row["total_expense"] or 0
     net = inc - exp
 
     print(f"\n  {'Total Income   :':<22} {fmt_money(inc)}")
     print(f"  {'Total Expenses :':<22} {fmt_money(-exp)}")
     print(f"  {'─' * 40}")
-    print(f"  {C.BOLD}{'Net Balance    :':<22} {fmt_money(net)}{C.RESET}")
-    print(f"\n  {C.DIM}Total transactions: {row['txn_count']}{C.RESET}")
+    print(f"  {BOLD}{'Net Balance    :':<22} {fmt_money(net)}{RESET}")
+    print(f"\n  {DIM}Total transactions: {row['txn_count']}{RESET}")
 
-def summary_by_tag(conn: MySQLConnection) -> None:
+def summary_by_tag(conn):
     header("Summary by Tag")
     rows = fetch_all(conn, """
         SELECT
@@ -434,28 +421,28 @@ def summary_by_tag(conn: MySQLConnection) -> None:
         info("No transactions yet.")
         return
 
-    print(f"\n  {C.BOLD}{padded('Tag', 22)} {padded('Income', 12, '>')} {padded('Expense', 12, '>')} "
-          f"{padded('Net', 12, '>')} {padded('Budget', 12, '>')}  Usage{C.RESET}")
+    print(f"\n  {BOLD}{padded('Tag', 22)} {padded('Income', 12, '>')} {padded('Expense', 12, '>')} "
+          f"{padded('Net', 12, '>')} {padded('Budget', 12, '>')}  Usage{RESET}")
     print(f"  {'─' * 80}")
     for r in rows:
-        inc = r["income"] or Decimal(0)
-        exp = r["expense"] or Decimal(0)
+        inc = r["income"] or 0
+        exp = r["expense"] or 0
         net = inc - exp
         bud = r["budget"]
 
         usage_str = ""
         if bud and bud > 0:
-            pct = float(exp / bud * 100)
+            pct = exp / bud * 100
             bar_filled = min(int(pct / 10), 10)
             bar = "█" * bar_filled + "░" * (10 - bar_filled)
-            bar_color = C.GREEN if pct < 80 else C.YELLOW if pct < 100 else C.RED
-            usage_str = f"{bar_color}{bar} {pct:.0f}%{C.RESET}"
+            bar_color = GREEN if pct < 80 else YELLOW if pct < 100 else RED
+            usage_str = f"{bar_color}{bar} {pct:.0f}%{RESET}"
         bud_str = padded(f"${bud:,.0f}" if bud else "—", 12, ">")
 
         print(f"  {padded(r['tag'], 22)} "
-              f"{fmt_money_cell(inc, 12, color=C.GREEN)} "
-              f"{fmt_money_cell(exp, 12, color=C.RED)} "
-              f"{fmt_money_cell(abs(net), 12, color=C.GREEN if net >= 0 else C.RED)} "
+              f"{fmt_money_cell(inc, 12, color=GREEN)} "
+              f"{fmt_money_cell(exp, 12, color=RED)} "
+              f"{fmt_money_cell(abs(net), 12, color=GREEN if net >= 0 else RED)} "
               f"{bud_str}  {usage_str}")
 
 MENU = """
@@ -477,17 +464,17 @@ MENU = """
  {g}0{r}  Exit
 """
 
-def main() -> None:
-    print(f"\n{C.CYAN}{C.BOLD}")
+def main():
+    print(f"\n{CYAN}{BOLD}")
     print("  BUDGET TRACKER")
-    print(C.RESET)
+    print(RESET)
 
     config = get_db_config()
 
-    print(f"\n{C.DIM}  Connecting to MySQL...{C.RESET}")
+    print(f"\n{DIM}  Connecting to MySQL...{RESET}")
     try:
         conn = connect(config)
-        success(f"Connected to '{config.database}' on {config.host}:{config.port}")
+        success(f"Connected to '{config['database']}' on {config['host']}:{config['port']}")
     except Error as e:
         error(f"Could not connect: {e}")
         sys.exit(1)
@@ -514,10 +501,10 @@ def main() -> None:
 
     try:
         while True:
-            print(MENU.format(bold=C.BOLD, reset=C.RESET, dim=C.DIM, g=C.GREEN, r=C.RESET))
+            print(MENU.format(bold=BOLD, reset=RESET, dim=DIM, g=GREEN, r=RESET))
             choice = prompt("Choose an option")
             if choice == "0":
-                print(f"\n{C.CYAN}Goodbye!{C.RESET}\n")
+                print(f"\n{CYAN}Goodbye!{RESET}\n")
                 break
             elif choice in actions:
                 try:
@@ -536,5 +523,5 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print(f"\n\n{C.CYAN}Exiting... Goodbye!{C.RESET}\n")
+        print(f"\n\n{CYAN}Exiting... Goodbye!{RESET}\n")
         sys.exit(0)
